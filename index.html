@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ghost Work+opening</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg-sky: #e0e3ec;
+      --window-bg: #ffffff;
+      --paper: #fdfcf7;
+      --text-main: #111;
+      --text-muted: #777;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background: url("./DS3image/window desktop4.png") no-repeat center center / cover;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: filter 0.35s ease;
+    }
+
+    /* 默认主窗口隐藏，打完卡之后再出现 */
+    .window {
+      width: 360px;
+      height: 560px;
+      background: var(--window-bg);
+      border-radius: 10px;
+      box-shadow:
+        0 18px 40px rgba(0,0,0,0.35),
+        0 0 0 1px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      resize: both;
+      min-width: 280px;
+      min-height: 360px;
+      transition: transform 0.25s ease, filter 0.35s ease, opacity 0.4s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    body.shift-started .window {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .window-header {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.576);
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, #fdfdfd, #ececf0);
+    }
+
+    .traffic-lights {
+      display: flex;
+      gap: 6px;
+      margin-right: 10px;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+    .dot.red { background:#ff5f57; }
+    .dot.yellow { background:#febc2e; }
+    .dot.green { background:#28c840; }
+
+    .address-bar {
+      flex: 1;
+      height: 20px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 11px;
+      color: #414141;
+    }
+
+    .window-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0 20px 14px;
+      gap: 14px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .strip-viewport {
+      flex: 1;
+      border-radius: 7px;
+      background: transparent;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .paper-strip {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 180px;
+      height: 0;
+      background: var(--paper);
+      border-radius: 10px;
+      box-shadow:
+        0 14px 24px rgba(0,0,0,0.45),
+        0 0 0 1px rgba(0,0,0,0.9);
+      overflow: hidden;
+      transition: filter 0.3s ease;
+    }
+
+    .paper-content {
+      position: relative;
+      width: 100%;
+      padding-top: 8px;
+      padding-bottom: 40px;
+    }
+
+    .fact-item {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .fact-text {
+      font-size: 10px;
+      line-height: 1.45;
+      color: #000000;
+      border-radius: 6px;
+      padding: 6px 8px;
+      background: rgba(255,255,255,0.8);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .stats {
+      line-height: 1.6;
+    }
+    .stats .value {
+      font-weight: 700;
+      color: #000;
+    }
+
+    #clickButton {
+      appearance: none;
+      border-radius: 8px;
+      border: 1px solid rgb(0, 0, 0);
+      padding: 6px 10px;
+      background: #ffffff;
+      color: #000000;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: filter 0.2s ease, opacity 0.2s ease;
+    }
+    #clickButton:hover { filter: brightness(1.05); }
+    #clickButton:disabled {
+      cursor: default;
+      opacity: 0.5;
+      filter: none;
+    }
+
+    /* ---------- 打卡机开场 ---------- */
+
+    .start-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 6000;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    .start-overlay.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .intro-stage {
+      position: relative;
+      width: min(460px, 80vw);
+      height: min(620px, 120vh);
+    }
+
+    .intro-machine-back,
+    .intro-machine-front {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%) scale(2);
+      transform-origin: center bottom;
+      width: 100%;
+      max-width: 500px;
+      bottom: 0.07%;
+      filter: drop-shadow(0 14px 30px rgba(0,0,0,0.35));
+    }
+    .intro-machine-back { z-index: 1; opacity: 0.9; }
+    .intro-machine-front { z-index: 3; }
+
+    .intro-card {
+      position: fixed;
+      width: 70vw;
+      max-width: 700px;
+      min-width: 120px;
+      cursor: grab;
+      z-index: 4;
+      filter: drop-shadow(0 12px 20px rgba(0,0,0,0.35));
+      user-select: none;
+      -webkit-user-drag: none;
+      transition: transform 0.15s ease, left 0.2s ease-out, top 0.2s ease-out;
+    }
+    .intro-card:active {
+      cursor: grabbing;
+      transform: scale(1.02);
+    }
+
+    .intro-hint {
+      position: absolute;
+      bottom: 0.005%;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ff0000;
+      text-shadow: 0 0 10px rgb(0, 0, 0);
+    }
+
+    @keyframes card-bounce-in {
+      0%   { transform: translateY(0); }
+      40%  { transform: translateY(60px); }
+      70%  { transform: translateY(-30px); }
+      100% { transform: translateY(0); }
+    }
+
+    /* ---------- Idle 遮罩 ---------- */
+    .idle-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 5000;
+    }
+    .idle-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .idle-inner {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #ff0000;
+      font-family: inherit;
+      padding: 0;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .idle-timer {
+      font-size: 20vmax;
+      line-height: 1;
+      margin: 0;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+      transform-origin: center center;
+      transform: none;
+    }
+
+    .idle-label {
+      position: absolute;
+      left: 50%;
+      bottom: 7vh;
+      transform: translateX(-50%);
+      width: 80%;
+      text-align: center;
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .idle-inner p {
+      position: absolute;
+      left: 50%;
+      bottom: 3vh;
+      transform: translateX(-50%);
+      width: 80%;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.4;
+      opacity: 0.9;
+    }
+
+    /* ---------- 小窗（罚款 + 新闻） ---------- */
+    .penalty-window {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      background: var(--window-bg);
+      border-radius: 8px;
+      box-shadow:
+        0 18px 40px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(0,0,0,0.3);
+      max-width: 95vw;
+      font-size: 12px;
+      color: #111;
+      overflow: hidden;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+      font-family: Menlo, ui-monospace, SFMono-Regular, Monaco, Consolas, "Courier New", monospace;
+    }
+    .penalty-template,
+    .news-template {
+      display: none;
+    }
+
+    .penalty-header {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      background: linear-gradient(to bottom, #fdfdfd, #ececf0);
+      cursor: move;
+    }
+    .penalty-header .traffic-lights {
+      gap: 6px;
+      margin-right: 10px;
+    }
+    .penalty-title {
+      font-size: 11px;
+      color: #3c3c3c;
+    }
+
+    .penalty-body {
+      padding: 10px 12px 12px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .penalty-body--fine {
+      background: #ff0000;
+      color: #0000ff;
+      font-weight: bold;
+    }
+
+    .penalty-body--news {
+      background: #ffffff;
+      color: #111;
+      padding: 0;
+    }
+
+    .penalty-body p {
+      margin: 2px 0;
+      font-size: 15px;
+    }
+
+    .penalty-ok {
+      appearance: none;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.4);
+      padding: 4px 10px;
+      background: #ffffff;
+      color: #0000ff;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .penalty-ok:hover {
+      filter: brightness(0.95);
+    }
+
+    .news-image {
+      width: 100%;
+      display: block;
+      margin-bottom: 0;
+      border-radius: 0;
+      object-fit: cover;
+      max-height: 260px;
+    }
+    .news-headline {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 10px 0;
+    }
+    .news-snippet {
+      font-size: 10px;
+      padding: 0 10px 4px;
+    }
+    .news-link {
+      font-size: 10px;
+      text-decoration: underline;
+      color: #0066cc;
+      padding: 0 10px 8px;
+      display: inline-block;
+    }
+
+    /* ---------- Distortion & Breakdown ---------- */
+    body.distorted .window {
+      filter: blur(0.7px) contrast(0.95) grayscale(0.1);
+    }
+    body.distorted .fact-text {
+      font-size: 8px;
+      opacity: 0.7;
+      letter-spacing: 0.04em;
+    }
+    body.distorted .stats .value {
+      color: #444;
+    }
+    body.distorted #clickButton {
+      background: #222;
+      border-color: rgba(0,0,0,0.3);
+    }
+
+    @keyframes jitter {
+      0%   { transform: translate(-1px, 0); }
+      25%  { transform: translate(1px, 1px); }
+      50%  { transform: translate(0, -1px); }
+      75%  { transform: translate(-1px, 1px); }
+      100% { transform: translate(1px, 0); }
+    }
+
+    body.breakdown .window-body {
+      animation: jitter 0.18s infinite alternate;
+    }
+    body.breakdown .paper-strip {
+      filter: contrast(1.3) saturate(1.1);
+    }
+
+    /* ---------- Final report ---------- */
+    .final-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 6500;
+    }
+    .final-inner {
+      background: #99ff66;
+      color: #0011aa;
+      padding: 24px 28px;
+      border-radius: 16px;
+      box-shadow:
+        0 22px 50px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(0,0,0,0.6);
+      font-size: 12px;
+      min-width: 260px;
+      font-family: Menlo, ui-monospace, SFMono-Regular, Monaco, Consolas, "Courier New", monospace;
+    }
+    .final-title {
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .final-inner p {
+      margin: 4px 0;
+    }
+    .final-metric {
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <!-- 打卡机开场 -->
+  <div class="start-overlay" id="startOverlay">
+    <div class="intro-stage" id="introStage">
+      <img src="./DS3image/punch-machine.png" class="intro-machine-back" id="machineBack" alt="punch machine back">
+      <img src="./DS3image/punch-machine.png" class="intro-machine-front" id="machineFront" alt="punch machine front">
+      <img src="./DS3image/punch-card.png" class="intro-card" id="punchCard" alt="time card">
+      <div class="intro-hint">DRAG THE TIME CARD TO CLOCK IN</div>
+    </div>
+  </div>
+
+  <!-- Idle 黑幕 + 倒计时 -->
+  <div class="idle-overlay" id="idleOverlay">
+    <div class="idle-inner">
+      <div class="idle-timer" id="idleCountdown">15:00:00</div>
+      <div class="idle-label">PAY CUT ING</div>
+      <p>Please resume clicking. Idle time will be reported to your supervisor for pay deduction.</p>
+    </div>
+  </div>
+
+  <!-- 罚款提示小窗口模板 -->
+  <div class="penalty-template penalty-window" id="penaltyTemplate">
+    <div class="penalty-header">
+      <div class="traffic-lights">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <div class="penalty-title">pay notice</div>
+    </div>
+    <div class="penalty-body penalty-body--fine">
+      <p>
+        Idle time has been reported.<br>
+        <strong>$0.13</strong> will be deducted from your current hour.
+      </p>
+      <button class="penalty-ok">Wage Deduction Notice</button>
+    </div>
+  </div>
+
+  <!-- News 小窗口模板 -->
+  <div class="news-template penalty-window" id="newsTemplate">
+    <div class="penalty-header">
+      <div class="traffic-lights">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <div class="penalty-title">NEWS</div>
+    </div>
+    <div class="penalty-body penalty-body--news">
+      <img class="news-image" src="" alt="case image">
+      <p class="news-headline"><strong></strong></p>
+      <p class="news-snippet"></p>
+      <p><a class="news-link" href="#" target="_blank">Open article</a></p>
+    </div>
+  </div>
+
+  <!-- Final report 结算幕 -->
+  <div class="final-overlay" id="finalOverlay">
+    <div class="final-inner">
+      <div class="final-title">RECEIVED / HUMAN LABOR PROCESSING SYSTEM</div>
+      <p>Items Reviewed: <span id="finalItems" class="final-metric">24,382</span></p>
+      <p>Clicks Logged: <span id="finalClicks" class="final-metric">0</span></p>
+      <p>Key Travel: <span id="finalMm" class="final-metric">0.0 mm</span></p>
+      <p>Idle Time: <span id="finalIdle" class="final-metric">00:00:00</span></p>
+      <p>Deductions Applied: <span id="finalDeductions" class="final-metric">$0.00</span></p>
+      <p>Payment Issued: <span id="finalPay" class="final-metric">$0.00</span></p>
+      <p>Status: <span id="finalRating" class="final-metric">-</span></p>
+    </div>
+  </div>
+
+  <!-- 主窗口 -->
+  <div class="window" id="mainWindow">
+    <div class="window-header">
+      <div class="traffic-lights">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <div class="address-bar">
+        ghostwork/view every click
+      </div>
+    </div>
+
+    <div class="window-body">
+      <div class="strip-viewport">
+        <div class="paper-strip" id="paperStrip">
+          <div class="paper-content" id="paperContent"></div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <div class="stats">
+          CLICKS
+          <span id="clickCount" class="value">0</span>
+        </div>
+        <button id="clickButton" disabled>Click to add 0.1 mm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ------------------ 纸带逻辑 ------------------ */
+    const mmPerClick = 0.5;
+    const pxPerMm = 6;
+
+    let clickCount = 0;
+    const paperStrip   = document.getElementById('paperStrip');
+    const paperContent = document.getElementById('paperContent');
+    const clickCountEl = document.getElementById('clickCount');
+    const heightMmEl   = document.getElementById('heightMm'); // 没有展示的高度文本可以忽略
+    const mainWindow   = document.getElementById('mainWindow');
+
+    const TASK_TOTAL_CLICKS       = 210;
+    const DISTORTION_CLICKS       = 100;
+    const BREAKDOWN_OFFSET_CLICKS = 2;
+    const DISTORTION_DELAY_MS     = 3;
+    const PAY_PER_CLICK           = 0.0003;
+
+    const TAPE_TOTAL_CLICKS       = TASK_TOTAL_CLICKS;
+
+    let isDistorted       = false;
+    let breakdownStarted  = false;
+    let taskCompleted     = false;
+
+    const facts = [
+  { clicksPos: 1550,   text: 'At shift end the platform logged throughput metrics — but many workers found their individual pay adjusted downward.' },
+  { clicksPos: 1600,   text: 'Investigations and court filings exposed systemic issues: withheld pay, sudden layoffs, and broken promises.' },
+  { clicksPos: 1650,  text: 'Some workers have filed lawsuits or complaints about unfair dismissal, unpaid wages, and traumatic workloads.' },
+  { clicksPos:1700,  text: 'Low pay yet heavy exposure to graphic content led many to suffer severe emotional and psychological distress.' },
+  { clicksPos:1750,  text: 'Moderators say speed was the priority — fast judgments with little context for what they were reviewing.' },
+  { clicksPos: 1800,  text: 'Despite claims of “automation,” major platforms still rely on third-party contractors and human moderators.' },
+  { clicksPos: 1850,  text: 'Hundreds or thousands of items — text, images, video — had to be reviewed every shift under tight time pressure.' },
+  { clicksPos: 1900, text: 'Shifts ran day and night, rotating across time zones — many moderators worked long, irregular hours.' },
+  { clicksPos: 1950, text: 'If your mouse stopped — even for a bathroom break — the clock kept running; idle time could trigger deductions.' },
+  { clicksPos: 2000, text: 'Some content-moderators in Kenya reported sifting through hundreds of violent or graphic posts each day for <$2/hr.' },
+  { clicksPos: 2050, text: 'Even brief pauses were treated as “idle time” — some had pay docked for a few seconds’ inactivity.' },
+  { clicksPos: 2100, text: 'Workers say they were pushed to click ~25 items per minute to meet platform quotas.' }
+];
+
+
+    function mmToPx(mm) { return mm * pxPerMm; }
+
+    let tapeLengthPx = 0;
+    let baseOffsetPx = 0;
+
+    function recalcBaseOffset() {
+      const edgeVisiblePx = 16;
+      baseOffsetPx = -tapeLengthPx + edgeVisiblePx;
+    }
+
+    function initFacts() {
+      facts.forEach(f => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'fact-item';
+
+        const inner = document.createElement('div');
+        inner.className = 'fact-text';
+        inner.textContent = f.text;
+
+        wrapper.appendChild(inner);
+        paperContent.appendChild(wrapper);
+
+        const posMm = f.clicksPos * mmPerClick;
+        const posPx = mmToPx(posMm);
+        wrapper.style.top = (8 + posPx) + 'px';
+
+        f.el = wrapper;
+      });
+
+      const tapeTotalMm = TAPE_TOTAL_CLICKS * mmPerClick;
+      const maxFactMm =
+        facts.length > 0
+          ? Math.max(...facts.map(f => f.clicksPos * mmPerClick)) + 20
+          : 0;
+
+      const finalMm = Math.max(tapeTotalMm, maxFactMm);
+      tapeLengthPx = mmToPx(finalMm);
+      paperStrip.style.height = tapeLengthPx + 'px';
+
+      recalcBaseOffset();
+      paperStrip.style.transform = `translate(-50%, ${baseOffsetPx}px)`;
+    }
+
+    function initRulers() {
+      const rulerEveryMm = 100;
+      const maxMm = tapeLengthPx / pxPerMm;
+      const count = Math.floor(maxMm / rulerEveryMm);
+
+      for (let i = 0; i < count; i++) {
+        const line = document.createElement('div');
+        line.className = 'ruler-line';
+        line.style.top = (i + 1) * mmToPx(rulerEveryMm) + 'px';
+        paperContent.appendChild(line);
+      }
+    }
+
+    function updateStrip() {
+      const totalMm  = clickCount * mmPerClick;
+      const travelPx = mmToPx(totalMm);
+      const offset   = baseOffsetPx + travelPx;
+
+      paperStrip.style.transform = `translate(-50%, ${offset}px)`;
+      clickCountEl.textContent  = clickCount;
+      if (heightMmEl) {
+        heightMmEl.textContent = totalMm.toFixed(1) + ' mm';
+      }
+    }
+
+    /* ------------------ Idle + 罚款 + News ------------------ */
+    const idleOverlay   = document.getElementById('idleOverlay');
+    const idleCountdown = document.getElementById('idleCountdown');
+    const penaltyTemplate = document.getElementById('penaltyTemplate');
+    const newsTemplate    = document.getElementById('newsTemplate');
+
+    const IDLE_THRESHOLD_MS = 15000;
+    const WARNING_MS        = 15000;
+
+    let lastActiveTime     = Date.now();
+    let idleCountdownTimer = null;
+    let idleCheckTimer     = null;
+    let penaltyCount       = 0;
+    let hasStarted         = false;
+
+    let newsOpened = 0;
+    const MAX_NEWS_WINDOWS = Infinity;
+    let breakdownClicksSinceNews = 0;
+    let breakdownClicksTotal = 0;
+
+    function formatMsToSSMMTT(ms) {
+      const totalMs = Math.max(0, Math.floor(ms));
+      const seconds = Math.floor(totalMs / 1000);
+      const millis  = totalMs % 1000;
+      const tick    = Math.floor((totalMs % 1000) / 50);
+
+      const pad2 = n => n.toString().padStart(2, '0');
+      const pad3 = n => n.toString().padStart(3, '0');
+
+      return `${pad2(seconds)}:${pad3(millis)}:${pad2(tick)}`;
+    }
+
+    function fitIdleTimer() {
+      if (!idleOverlay.classList.contains('visible')) return;
+      const box   = idleOverlay.getBoundingClientRect();
+      const timer = idleCountdown;
+
+      timer.style.transform = 'none';
+      const rect = timer.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const scaleX = box.width  / rect.width;
+      const scaleY = box.height / rect.height;
+
+      timer.style.transformOrigin = 'center center';
+      timer.style.transform = `scale(${scaleX}, ${scaleY})`;
+    }
+
+    function showIdleOverlay() {
+      if (idleOverlay.classList.contains('visible')) return;
+
+      idleOverlay.classList.add('visible');
+
+      let remainingMs = WARNING_MS;
+      idleCountdown.textContent = formatMsToSSMMTT(remainingMs);
+      requestAnimationFrame(fitIdleTimer);
+
+      idleCountdownTimer = setInterval(() => {
+        remainingMs -= 50;
+        if (remainingMs < 0) remainingMs = 0;
+
+        idleCountdown.textContent = formatMsToSSMMTT(remainingMs);
+        fitIdleTimer();
+
+        if (!idleOverlay.classList.contains('visible')) {
+          clearInterval(idleCountdownTimer);
+          idleCountdownTimer = null;
+          return;
+        }
+
+        if (remainingMs <= 0) {
+          clearInterval(idleCountdownTimer);
+          idleCountdownTimer = null;
+
+          hideIdleOverlay();
+          createPenaltyWindow();
+          resetIdleTimer();
+        }
+      }, 50);
+    }
+
+    function hideIdleOverlay() {
+      idleOverlay.classList.remove('visible');
+      if (idleCountdownTimer) {
+        clearInterval(idleCountdownTimer);
+        idleCountdownTimer = null;
+      }
+    }
+
+    function makeDraggable(winEl) {
+      const handle = winEl.querySelector('.penalty-header') || winEl;
+      let isDragging = false;
+      let startX, startY, startLeft, startTop;
+
+      function onMouseDown(e) {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = winEl.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop  = rect.top;
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+
+      function onMouseMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        winEl.style.left = `${startLeft + dx}px`;
+        winEl.style.top  = `${startTop + dy}px`;
+      }
+
+      function onMouseUp() {
+        isDragging = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      handle.addEventListener('mousedown', onMouseDown);
+    }
+
+    function createPenaltyWindow() {
+      penaltyCount++;
+
+      const clone = penaltyTemplate.cloneNode(true);
+      clone.id = '';
+      clone.classList.remove('penalty-template');
+      clone.style.display = 'flex';
+      clone.style.position = 'fixed';
+      clone.style.zIndex = 2000 + penaltyCount;
+
+      const rect  = mainWindow.getBoundingClientRect();
+      const bodyW = window.innerWidth;
+      const bodyH = window.innerHeight;
+
+      const penaltyWidth  = rect.width * 0.5;
+      const penaltyHeight = rect.height * 0.4;
+
+      clone.style.width  = `${penaltyWidth}px`;
+      clone.style.height = `${penaltyHeight}px`;
+
+      const titleEl = clone.querySelector('.penalty-title');
+      if (titleEl) {
+        titleEl.textContent = `pay notice · #${penaltyCount}`;
+      }
+
+      const overlap = 5 + Math.random() * 12;
+      const side = Math.random() < 0.5 ? 'left' : 'right';
+
+      let top;
+      let left;
+
+      const maxTopRange = Math.max(0, rect.height - penaltyHeight - 60);
+      top = rect.top + 20 + Math.random() * maxTopRange;
+      top = Math.max(20, Math.min(bodyH - penaltyHeight - 20, top));
+
+      if (side === 'right') {
+        left = rect.right - overlap;
+      } else {
+        left = rect.left - penaltyWidth + overlap;
+      }
+
+      left = Math.max(10, Math.min(bodyW - penaltyWidth - 10, left));
+
+      clone.style.top  = `${top}px`;
+      clone.style.left = `${left}px`;
+
+      const okBtn = clone.querySelector('.penalty-ok');
+      if (okBtn) {
+        okBtn.addEventListener('click', () => {
+          clone.classList.add('penalty-archived');
+        });
+      }
+
+      document.body.appendChild(clone);
+      makeDraggable(clone);
+    }
+
+    const newsItems = [
+      { image: './DS3image/news1.jpg', url: 'https://www.washingtonpost.com/world/2023/08/28/scale-ai-remotasks-philippines-artificial-intelligence/' },
+      { image: './DS3image/news2.jpg', url: 'https://www.reuters.com/technology/content-moderator-kenya-sues-meta-over-working-conditions-2022-05-10/' },
+      { image: './DS3image/news3.jpg', url: 'https://time.com/7293552/meta-scale-ai-workers/' },
+      { image: './DS3image/news4.jpg', url: 'https://time.com/7293552/meta-scale-ai-workers/' },
+      { image: './DS3image/news5.jpg', url: 'https://time.com/7293552/meta-scale-ai-workers/' },
+      { image: './DS3image/news6.jpg', url: 'https://www.reuters.com/article/business/media-telecom/feature-ai-boom-is-dream-and-nightmare-for-workers-in-global-south-idUSL5N2XI2X8/' },
+      { image: './DS3image/news7.png', url: 'https://www.theguardian.com/media/2024/dec/18/kenya-facebook-moderators-sue-after-diagnoses-of-severe-ptsd?utm_source=chatgpt.com' },
+      { image: './DS3image/news8.png', url: 'https://www.theguardian.com/technology/2025/apr/27/meta-faces-ghana-lawsuits-over-impact-of-extreme-content-on-moderators?utm_source=chatgpt.com' },
+      { image: './DS3image/news9.png', url: 'https://www.wired.com/2014/10/content-moderation/?utm_source=chatgpt.com' },
+      { image: './DS3image/news10.png', url: 'https://www.cbsnews.com/news/ai-work-kenya-exploitation-60-minutes/?utm_source=chatgpt.com' },
+      { image: './DS3image/news11.png', url: 'https://www.reuters.com/world/africa/kenya-court-rules-meta-can-be-sued-over-layoffs-by-contractor-2024-09-20/?utm_source=chatgpt.com' },
+      { image: './DS3image/news12.png', url: 'https://www.theguardian.com/world/2024/dec/18/why-former-facebook-moderators-in-kenya-are-taking-legal-action?utm_source=chatgpt.com' },
+      { image: './DS3image/news13.png', url: 'https://time.com/6247678/openai-chatgpt-kenya-workers/?utm_source=chatgpt.com' }
+      
+    ];
+
+    function createNewsWindow() {
+      if (!newsTemplate) return;
+      if (newsOpened >= MAX_NEWS_WINDOWS) return;
+
+      newsOpened++;
+
+      const clone = newsTemplate.cloneNode(true);
+      clone.id = '';
+      clone.classList.remove('news-template');
+      clone.style.display = 'flex';
+      clone.style.position = 'fixed';
+
+      const minW = 260;
+      const maxW = Math.min(420, window.innerWidth - 40);
+      const width = minW + Math.random() * (maxW - minW);
+      clone.style.width = `${width}px`;
+
+      const data = newsItems[Math.floor(Math.random() * newsItems.length)];
+
+      const headlineEl = clone.querySelector('.news-headline');
+      const snippetEl  = clone.querySelector('.news-snippet');
+      const linkEl     = clone.querySelector('.news-link');
+      const imgEl      = clone.querySelector('.news-image');
+
+      if (headlineEl) headlineEl.textContent = data.headline || '';
+      if (snippetEl)  snippetEl.textContent  = data.snippet  || '';
+      if (linkEl)     linkEl.href = data.url;
+      if (imgEl) {
+        if (data.image) {
+          imgEl.src = data.image;
+          imgEl.style.display = 'block';
+        } else {
+          imgEl.style.display = 'none';
+        }
+      }
+
+      document.body.appendChild(clone);
+
+      requestAnimationFrame(() => {
+        const rect = clone.getBoundingClientRect();
+        const bodyW = window.innerWidth;
+        const bodyH = window.innerHeight;
+
+        const maxLeft = Math.max(10, bodyW - rect.width - 10);
+        const maxTop  = Math.max(10, bodyH - rect.height - 10);
+
+        const left = 10 + Math.random() * (maxLeft - 10);
+        const top  = 10 + Math.random() * (maxTop - 10);
+
+        clone.style.left = `${left}px`;
+        clone.style.top  = `${top}px`;
+      });
+
+      makeDraggable(clone);
+    }
+
+    function resetIdleTimer() {
+      if (!hasStarted || taskCompleted) return;
+      lastActiveTime = Date.now();
+      hideIdleOverlay();
+    }
+
+    ['click'].forEach(ev => {
+      document.addEventListener(ev, resetIdleTimer, { passive: true });
+    });
+
+    idleCheckTimer = setInterval(() => {
+      const now = Date.now();
+      if (!hasStarted || taskCompleted) return;
+      if (!idleOverlay.classList.contains('visible') &&
+          now - lastActiveTime > IDLE_THRESHOLD_MS) {
+        showIdleOverlay();
+      }
+    }, 1000);
+
+    /* ---------- 阶段控制 & 点击 ---------- */
+    function startDistortionEffects() {
+      document.body.classList.add('distorted');
+      const btn = document.getElementById('clickButton');
+      if (btn) {
+        btn.textContent = 'Click (system lagging...)';
+      }
+    }
+
+    function startBreakdownEffects() {
+      document.body.classList.add('breakdown');
+      createNewsWindow();
+    }
+
+    function showFinalReport() {
+      const finalOverlay = document.getElementById('finalOverlay');
+      const clicksSpan   = document.getElementById('finalClicks');
+      const mmSpan       = document.getElementById('finalMm');
+      const paySpan      = document.getElementById('finalPay');
+      const ratingSpan   = document.getElementById('finalRating');
+      const btn          = document.getElementById('clickButton');
+
+      const totalMm = clickCount * mmPerClick;
+      const pay     = clickCount * PAY_PER_CLICK;
+
+      if (clicksSpan) clicksSpan.textContent = clickCount;
+      if (mmSpan)     mmSpan.textContent     = totalMm.toFixed(1) + ' mm';
+      if (paySpan)    paySpan.textContent    = '$' + pay.toFixed(2);
+
+      let rating = 'BELOW TARGET';
+      if (penaltyCount === 0) rating = 'EXCELLENT';
+      else if (penaltyCount <= 2) rating = 'SATISFACTORY';
+
+      if (ratingSpan) ratingSpan.textContent = rating;
+      if (finalOverlay) finalOverlay.style.display = 'flex';
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Shift complete';
+      }
+    }
+
+    function addClick() {
+      if (!hasStarted || taskCompleted) return;
+
+      clickCount++;
+
+      if (isDistorted) {
+        setTimeout(updateStrip, DISTORTION_DELAY_MS);
+      } else {
+        updateStrip();
+      }
+
+      resetIdleTimer();
+
+      if (clickCount >= DISTORTION_CLICKS && !isDistorted) {
+        isDistorted = true;
+        startDistortionEffects();
+      }
+
+      if (isDistorted &&
+          !breakdownStarted &&
+          clickCount >= DISTORTION_CLICKS + BREAKDOWN_OFFSET_CLICKS) {
+        breakdownStarted = true;
+        startBreakdownEffects();
+      }
+
+      if (breakdownStarted && !taskCompleted) {
+        breakdownClicksSinceNews++;
+        breakdownClicksTotal++;
+
+        let interval;
+        if (breakdownClicksTotal < 12) {
+          interval = 4;
+        } else if (breakdownClicksTotal < 28) {
+          interval = 2;
+        } else {
+          interval = 1;
+        }
+
+        if (breakdownClicksSinceNews >= interval) {
+          createNewsWindow();
+          breakdownClicksSinceNews = 0;
+        }
+      }
+
+      if (clickCount >= TASK_TOTAL_CLICKS && !taskCompleted) {
+        taskCompleted = true;
+        showFinalReport();
+      }
+    }
+
+    document.getElementById('clickButton').addEventListener('click', (e) => {
+      e.stopPropagation();
+      addClick();
+    });
+    document.querySelector('.strip-viewport').addEventListener('click', () => {
+      addClick();
+    });
+
+    /* ---------- 打卡机拖拽逻辑 ---------- */
+    const startOverlay = document.getElementById('startOverlay');
+    const punchCard = document.getElementById('punchCard');
+    const machineFront = document.getElementById('machineFront');
+    const clickBtn = document.getElementById('clickButton');
+
+    function startShift() {
+      if (hasStarted) return;
+      hasStarted = true;
+      lastActiveTime = Date.now();
+      if (clickBtn) clickBtn.disabled = false;
+      document.body.classList.add('shift-started');
+      if (startOverlay) {
+        startOverlay.classList.add('is-hidden');
+      }
+    }
+
+    // 把卡片摆到机器正上方
+    function placeCardAboveMachine() {
+      if (!punchCard || !machineFront) return;
+
+      // 先让浏览器确认图片尺寸
+      const cardRect = punchCard.getBoundingClientRect();
+      const machineRect = machineFront.getBoundingClientRect();
+
+      const cardWidth  = cardRect.width  || (window.innerWidth * 0.7);
+      const cardHeight = cardRect.height || (window.innerHeight * 0.15);
+
+      const targetLeft = machineRect.left + (machineRect.width - cardWidth) / 2;
+      const targetTop  = machineRect.top - cardHeight * 0.4;
+
+      punchCard.style.left = `${targetLeft}px`;
+      punchCard.style.top  = `${targetTop}px`;
+    }
+
+    function setupIntroDrag() {
+      if (!punchCard || !machineFront) return;
+
+      let dragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      punchCard.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        const rect = punchCard.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        punchCard.style.left = (e.clientX - offsetX) + 'px';
+        punchCard.style.top  = (e.clientY - offsetY) + 'px';
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        checkDrop();
+      });
+
+      function checkDrop() {
+        const cardRect = punchCard.getBoundingClientRect();
+        const machineRect = machineFront.getBoundingClientRect();
+        const cardCenterX = cardRect.left + cardRect.width / 2;
+        const cardCenterY = cardRect.top + cardRect.height / 2;
+
+        const slotCenterX = machineRect.left + machineRect.width * 0.5;
+        const slotCenterY = machineRect.top + machineRect.height * 0.32;
+        const slotRadiusX = machineRect.width * 0.18;
+        const slotRadiusY = machineRect.height * 0.12;
+
+        const inSlot =
+          Math.abs(cardCenterX - slotCenterX) < slotRadiusX &&
+          Math.abs(cardCenterY - slotCenterY) < slotRadiusY;
+
+        if (inSlot) {
+          const targetLeft = slotCenterX - cardRect.width / 2;
+          const targetTop  = slotCenterY - cardRect.height * 0.1;
+
+          punchCard.style.left = targetLeft + 'px';
+          punchCard.style.top  = targetTop + 'px';
+
+          punchCard.style.zIndex = 2; // 在 front 下方（front 是 3）
+          punchCard.style.animation = 'card-bounce-in 0.8s ease-out';
+
+          setTimeout(() => {
+            startShift();
+          }, 260);
+        }
+      }
+    }
+
+    /* ------------------ 启动 ------------------ */
+    window.addEventListener('load', () => {
+      initFacts();
+      initRulers();
+      updateStrip();
+
+      setupIntroDrag();
+      // 让浏览器先 layout 一下再居中卡片，避免宽高为 0
+      setTimeout(placeCardAboveMachine, 30);
+    });
+
+    window.addEventListener('resize', () => {
+      recalcBaseOffset();
+      updateStrip();
+      if (idleOverlay.classList.contains('visible')) {
+        fitIdleTimer();
+      }
+      placeCardAboveMachine();
+    });
+  </script>
+</body>
+</html>
