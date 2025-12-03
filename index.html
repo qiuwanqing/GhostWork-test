@@ -224,6 +224,7 @@
       max-width: 500px;
       bottom: 0.07%;
       filter: drop-shadow(0 14px 30px rgba(0,0,0,0.35));
+      transition: transform 0.25s ease; 
     }
     .intro-machine-back { z-index: 1; opacity: 0.9; }
     .intro-machine-front { z-index: 3; }
@@ -240,6 +241,17 @@
       -webkit-user-drag: none;
       transition: transform 0.15s ease, left 0.2s ease-out, top 0.2s ease-out;
     }
+
+    body.intro-zoom .intro-machine-back,
+    body.intro-zoom .intro-machine-front {
+    transform: translateX(-50%) scale(2.25);  /* 比原来略大一点 */
+    }
+
+    body.intro-zoom .intro-card {
+    /* 卡片也轻微放大、提一点高度，看起来更“被吸进机器” */
+    transform: translateY(-8px) scale(1.03);
+    }
+
     .intro-card:active {
       cursor: grabbing;
       transform: scale(1.02);
@@ -330,6 +342,13 @@
       line-height: 1.4;
       opacity: 0.9;
     }
+    /* History 视图里高亮每一条标题 */
+    .history-highlight {
+    display: block;
+    text-align: center;
+    font-weight: 700;
+    margin: 1.5em 0 0.5em; /* 和上一条之间拉出距离，相当于你说的“两个段前回行” */
+    }
 
     /* ---------- 小窗（罚款 + 新闻） ---------- */
     .penalty-window {
@@ -346,7 +365,7 @@
       color: #111;
       overflow: hidden;
       z-index: 2000;
-      display: flex;
+      display: inline-flex;
       flex-direction: column;
       cursor: default;
       font-family: Menlo, ui-monospace, SFMono-Regular, Monaco, Consolas, "Courier New", monospace;
@@ -357,11 +376,11 @@
     }
 
     .penalty-header {
-      height: 40px;
+      height: 35px;
       display: flex;
       align-items: center;
       padding: 0 10px;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: 1px solid rgb(0, 0, 0);
       background: linear-gradient(to bottom, #fdfdfd, #ececf0);
       cursor: move;
     }
@@ -375,19 +394,42 @@
     }
 
     .penalty-body {
-      padding: 10px 12px 12px;
-      line-height: 1.5;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      height: 100%;
-    }
+  padding: 3px 5px 5px;
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  height: auto; /* 让高度跟内容走 */
+}
 
-    .penalty-body--fine {
-      background: #ff0000;
-      color: #0000ff;
-      font-weight: bold;
-    }
+  /* 罚款提示：红底+蓝色等宽字，排版像你截图那种 */
+  .penalty-body--fine {
+    background: #ff0000;
+    color: #0000ff;
+    font-weight: 800;
+    font-family: 'Source Code Variable', ui-monospace, SFMono-Regular,
+                Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-size: 14px;
+  }
+
+  /* 文字：三行紧凑排版 */
+  .penalty-body--fine p {
+    margin: 0;
+    white-space: pre-line; /* 保留换行 */
+  }
+
+  /* 按钮样式改成小蓝字的系统按钮 */
+  .penalty-body--fine .penalty-ok {
+    margin-top: 4px;
+    align-self: flex-start;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,255,0.6);
+    background: #ffffff;
+    color: #0000ff;
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
 
     .penalty-body--news {
       background: #ffffff;
@@ -441,75 +483,380 @@
       display: inline-block;
     }
 
-    /* ---------- Distortion & Breakdown ---------- */
-    body.distorted .window {
-      filter: blur(0.7px) contrast(0.95) grayscale(0.1);
+    /* ---------- Distortion & Breakdown（疲惫 & 崩溃） ---------- */
+
+    /* 阶段 1：只让中间 strip 先模糊（眼睛盯着中间累） */
+    body.distorted .strip-viewport {
+    filter: blur(1.2px) contrast(0.96) grayscale(0.05);
     }
     body.distorted .fact-text {
-      font-size: 8px;
-      opacity: 0.7;
-      letter-spacing: 0.04em;
+    font-size: 9px;
+    opacity: 0.85;
+    letter-spacing: 0.04em;
     }
     body.distorted .stats .value {
-      color: #444;
+    color: #444;
     }
     body.distorted #clickButton {
-      background: #222;
-      border-color: rgba(0,0,0,0.3);
+    background: #222;
+    border-color: rgba(0,0,0,0.3);
     }
 
-    @keyframes jitter {
-      0%   { transform: translate(-1px, 0); }
-      25%  { transform: translate(1px, 1px); }
-      50%  { transform: translate(0, -1px); }
-      75%  { transform: translate(-1px, 1px); }
-      100% { transform: translate(1px, 0); }
+    /* 阶段 2：模糊“扩散”到整块 window-body & header */
+    body.distorted-full .window-body {
+    filter: blur(1.4px) contrast(0.94) grayscale(0.12);
+    }
+    body.distorted-full .window-header {
+    filter: blur(0.8px);
     }
 
-    body.breakdown .window-body {
-      animation: jitter 0.18s infinite alternate;
+    /* Breakdown：不再整块抖，只让文字 / 行块扭曲 */
+
+    /* 1）整段事实块左右轻微漂移（错层感） */
+    @keyframes band-drift-left {
+    0%   { transform: translateX(0); }
+    50%  { transform: translateX(-1.5px); }
+    100% { transform: translateX(0.5px); }
     }
+    @keyframes band-drift-right {
+    0%   { transform: translateX(0); }
+    50%  { transform: translateX(1.5px); }
+    100% { transform: translateX(-0.5px); }
+    }
+
+    /* 2）文字本身的 wobble：水平抖 + 字距一会儿拉开一会儿挤在一起 */
+    @keyframes text-smear {
+    0% {
+        transform: translateX(0);
+        letter-spacing: 0.02em;
+        text-shadow: none;
+    }
+    25% {
+        transform: translateX(-0.6px);
+        letter-spacing: 0.08em;
+        text-shadow: -1px 0 0 rgba(0,0,0,0.7);
+    }
+    50% {
+        transform: translateX(0.8px);
+        letter-spacing: -0.02em;
+        text-shadow: 1px 0 0 rgba(0,0,0,0.5);
+    }
+    75% {
+        transform: translateX(-0.3px);
+        letter-spacing: 0.04em;
+        text-shadow: -0.5px 0 0 rgba(0,0,0,0.6);
+    }
+    100% {
+        transform: translateX(0);
+        letter-spacing: 0.02em;
+        text-shadow: none;
+    }
+    }
+
+    /* 3）stats 轻轻“漂浮”，有点看不稳数据的感觉 */
+    @keyframes stats-float {
+    0%   { transform: translateX(0); opacity: 1;   }
+    40%  { transform: translateX(1px); opacity: .9; }
+    70%  { transform: translateX(-1px); opacity: .95; }
+    100% { transform: translateX(0); opacity: 1;   }
+    }
+
+    /* 应用到事实块的行容器（错层漂移） */
+    body.breakdown .fact-item:nth-child(odd) {
+    animation: band-drift-left 0.7s infinite alternate ease-in-out;
+    }
+    body.breakdown .fact-item:nth-child(even) {
+    animation: band-drift-right 0.8s infinite alternate ease-in-out;
+    }
+
+    /* 具体文字的 smear */
+    body.breakdown .fact-text {
+    animation: text-smear 0.26s infinite alternate;
+    }
+
+    /* stats 也跟着一起“虚掉” */
+    body.breakdown .stats {
+    animation: stats-float 0.7s infinite alternate;
+    }
+
+    /* 整条纸带稍微过对比一点，让噪点/纹理顶出来 */
     body.breakdown .paper-strip {
-      filter: contrast(1.3) saturate(1.1);
+    filter: contrast(1.25) saturate(1.08);
     }
 
-    /* ---------- Final report ---------- */
+    /* 深度 breakdown：套上一个“水波 / 墨晕”位移滤镜，效果更狠一点 */
+    body.breakdown-deep .strip-viewport {
+    filter: url(#ink-distort) blur(0.4px) contrast(1.1);
+    }
+    body.breakdown-deep .fact-text {
+    animation-duration: 0.18s;   /* 更急躁 */
+    }
+
+
+
+    /* ====== 替换后的 final-overlay / final-window / final-ticket 样式（mac 窗口样式 + 票据） ====== */
     .final-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.88);
-      display: none;
+      display: none;            /* 由 JS 控制显示 */
       align-items: center;
       justify-content: center;
       z-index: 6500;
+      background: rgba(0,0,0,0.38);
     }
-    .final-inner {
-      background: #99ff66;
-      color: #0011aa;
-      padding: 24px 28px;
-      border-radius: 16px;
+
+
+    .final-window {
+      /* 宽度由内容决定，上限 90vw */
+      width: auto;
+      max-width: 90vw;
+
+      /* 高度从比较小开始，后面用 JS 一点点增高 */
+      height: 220px;
+      max-height: 80vh;
+      transition: height 0.25s ease;
+
+      border-radius: 12px;
+      background: var(--window-bg);
       box-shadow:
-        0 22px 50px rgba(0,0,0,0.7),
-        0 0 0 1px rgba(0,0,0,0.6);
-      font-size: 12px;
-      min-width: 260px;
-      font-family: Menlo, ui-monospace, SFMono-Regular, Monaco, Consolas, "Courier New", monospace;
+        0 26px 60px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(0,0,0,0.5);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: 'Source Code Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
     }
+
+
+    .final-ticket {
+      flex: 1; 
+      padding: 18px;
+      background: #2cfd30; /* 指定绿色背景 */
+      color: #0000ff;     /* 指定字体蓝色 */
+      /* 让票据不再强行 420px 起步，而是随内容变化 */
+      max-height: 78vh;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .final-ticket pre {
+      margin: 0;
+      /* 允许自动换行，这样窗口就不会被最长一行硬撑到很宽 */
+      white-space: pre-wrap;
+      word-break: break-word;
+
+      font-family: 'Source Code Variable', ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 12px;
+      color: #0000ff;
+      background: transparent;
+    }
+    
+    /* 整张票据内部：上下布局，上面是文字，下面是条码 */
+    .final-ticket-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;  /* 拉开，上下撑满，条码贴到底 */
+    width: 100%;
+    max-width: 520px;                /* 票据本身的宽度上限 */
+    height: 100%;
+    }
+
+    /* 条码区域：默认显示为列方向，居中对齐 */
+    .final-ticket-barcode {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 16px;     /* 和上面的文字拉开一点距离 */
+    margin-bottom: 10px;  /* 离底边一点点留白 */
+    }
+
+    /* 条码图片本体 */
+    .receipt-barcode {
+    width: 260px;         /* 可以按你截图调 220–280 之间 */
+    max-width: 80%;
+    height: auto;
+    }
+
+    /* 条码下面那行数字 */
+    .barcode-number {
+    margin-top: 10px;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    }
+
+    /* “VIEW EVERY CLICK” 文案 */
+    .barcode-caption {
+    margin-top: 26px;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    }
+
+     
+   /* 放在 final 样式那块，替换原来的 final-traffic-lights / final-address-bar 定义 */
+
+.final-window-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.576);
+  background: linear-gradient(to bottom, #fdfdfd, #ececf0);
+  gap: 10px;            /* 和主窗口一样留一点间距 */
+}
+
+.final-traffic-lights {
+  display: flex;
+  gap: 6px;
+  margin-right: 6px;    /* 给灯和地址栏之间一点呼吸 */
+}
+
+.final-traffic-lights .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+.final-traffic-lights .dot.red    { background:#ff5f57; }
+.final-traffic-lights .dot.yellow { background:#febc2e; }
+.final-traffic-lights .dot.green  { background:#28c840; }
+
+/* 这里重点：不要再 flex:1 撑满整行，而是给一个“上限宽度” */
+.final-address-bar {
+  flex: 0 1 260px;      /* 大概一块短地址栏，根据需要调成 220/280 都行 */
+  height: 20px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+  color: #414141;
+}
+.final-window-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.576);
+  background: linear-gradient(to bottom, #fdfdfd, #ececf0);
+  gap: 10px;
+}
+
+/* 右侧菜单整体是一个相对定位容器 */
+.final-menu {
+  margin-left: 6px;
+  position: relative;
+}
+
+/* 圆形 ⋯ 按钮 */
+.final-menu-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.25);
+  background: #f5f5f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #555;
+}
+
+.final-menu-button:hover {
+  background: #e5e5ea;
+}
+
+/* 下拉菜单 */
+.final-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  padding: 4px 0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.35),
+    0 0 0 1px rgba(0,0,0,0.12);
+  display: none;
+  z-index: 20;
+}
+
+.final-menu-dropdown.is-open {
+  display: block;
+}
+
+.final-menu-dropdown button {
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 11px;
+  color: #111;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.final-menu-dropdown button:hover {
+  background: #f0f0f5;
+}
+
+
+
     .final-title {
-      font-size: 12px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      margin-bottom: 14px;
+      font-size: 11px;
+      color: rgba(0,0,0,0.6);
+      font-weight: 600;
     }
-    .final-inner p {
-      margin: 4px 0;
+
+    @media (max-width: 420px) {
+      .final-ticket pre { font-size: 10px; }
     }
-    .final-metric {
-      font-weight: 700;
+
+    .final-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
     }
+
+    .final-actions button {
+    appearance: none;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.6);
+    padding: 4px 10px;
+    background: #ffffff;
+    color: #0000ff;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    }
+
+    .final-actions button:hover {
+    filter: brightness(0.95);
+    }
+
+    /* ---------- Final 旧定义结束 ---------- */
   </style>
 </head>
 <body>
+    <!-- 打卡音效 -->
+  <audio id="punchSound" src="./DS3image/punch-sound2.mp3" preload="auto"></audio>
+    <!-- 打小票音效（打印receipt的时候用） -->
+  <audio id="receiptSound" src="./DS3image/receipt-print.mp3" preload="auto"></audio>
+
+
   <!-- 打卡机开场 -->
   <div class="start-overlay" id="startOverlay">
     <div class="intro-stage" id="introStage">
@@ -523,7 +870,7 @@
   <!-- Idle 黑幕 + 倒计时 -->
   <div class="idle-overlay" id="idleOverlay">
     <div class="idle-inner">
-      <div class="idle-timer" id="idleCountdown">15:00:00</div>
+      <div class="idle-timer" id="idleCountdown">05:00:00</div>
       <div class="idle-label">PAY CUT ING</div>
       <p>Please resume clicking. Idle time will be reported to your supervisor for pay deduction.</p>
     </div>
@@ -540,9 +887,10 @@
       <div class="penalty-title">pay notice</div>
     </div>
     <div class="penalty-body penalty-body--fine">
-      <p>
-        Idle time has been reported.<br>
-        <strong>$0.13</strong> will be deducted from your current hour.
+      <p>Idle time has been 
+        reported.
+        $0.13 will be deducted 
+        from your current hour.
       </p>
       <button class="penalty-ok">Wage Deduction Notice</button>
     </div>
@@ -566,19 +914,95 @@
     </div>
   </div>
 
-  <!-- Final report 结算幕 -->
+  <!-- Final report 结算幕（已替换为 mac 风格窗口与票据） -->
   <div class="final-overlay" id="finalOverlay">
-    <div class="final-inner">
-      <div class="final-title">RECEIVED / HUMAN LABOR PROCESSING SYSTEM</div>
-      <p>Items Reviewed: <span id="finalItems" class="final-metric">24,382</span></p>
-      <p>Clicks Logged: <span id="finalClicks" class="final-metric">0</span></p>
-      <p>Key Travel: <span id="finalMm" class="final-metric">0.0 mm</span></p>
-      <p>Idle Time: <span id="finalIdle" class="final-metric">00:00:00</span></p>
-      <p>Deductions Applied: <span id="finalDeductions" class="final-metric">$0.00</span></p>
-      <p>Payment Issued: <span id="finalPay" class="final-metric">$0.00</span></p>
-      <p>Status: <span id="finalRating" class="final-metric">-</span></p>
+    <div class="final-window" role="dialog" aria-modal="true" aria-labelledby="finalReceiptTitle">   
+       
+        <div class="final-window-header">
+        <div class="final-traffic-lights" aria-hidden="true">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+        </div>
+
+        <div class="final-address-bar">
+            <span id="finalReceiptTitle" class="final-title">
+            Receipt
+            </span>
+        </div>
+
+        <!-- 像浏览器右上角 ⋯ 的菜单 -->
+        <div class="final-menu">
+            <button
+            id="finalMenuButton"
+            class="final-menu-button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            title="More"
+            type="button"
+            >
+            ⋯
+            </button>
+            <div
+            id="finalMenuDropdown"
+            class="final-menu-dropdown"
+            role="menu"
+            >
+            <button type="button" data-action="newShift"   role="menuitem">
+                Start New Shift
+            </button>
+            <button type="button" data-action="history"    role="menuitem">
+                View History
+            </button>
+            </div>
+        </div>
+        </div>
+
+      
+<div class="final-ticket">
+  <div class="final-ticket-inner">
+    <!-- 上半部分：文本收据内容 -->
+    <pre id="finalTicketText">
+========================================
+RECEIVED   
+────────────────────────────────────────
+Worker ID: 0429-7561-KN
+Session: 08:00–12:00
+
+Items Reviewed: 24,382
+Clicks Logged: 3,104
+Key Travel: 310.4 mm
+Idle Time: 00:14:32
+Deductions Applied: $0.37
+
+Emotional Exposure: HIGH
+Trauma Index: 0.73
+
+Payment Issued: $3.18
+Status: BELOW TARGET
+────────────────────────────────────────
+
+This receipt confirms the collection of 
+unseen human labor required by AI systems.
+Every click counts.
+========================================
+    </pre>
+
+    <!-- 下半部分：条码区，只在“单张收据”模式显示 -->
+    <div class="final-ticket-barcode">
+      <img
+        src="./DS3image/receipt-barcode.png"
+        alt="Transaction barcode"
+        class="receipt-barcode"
+      >
+      <div class="barcode-number">010271400000000000</div>
+      <div class="barcode-caption">VIEW EVERY CLICK</div>
     </div>
   </div>
+</div>
+  </div>
+</div>
+
 
   <!-- 主窗口 -->
   <div class="window" id="mainWindow">
@@ -627,30 +1051,37 @@
     const BREAKDOWN_OFFSET_CLICKS = 2;
     const DISTORTION_DELAY_MS     = 3;
     const PAY_PER_CLICK           = 0.0003;
+    const DEDUCTION_PER_PENALTY   = 0.13;   // 每个罚款弹窗扣多少钱（和小窗里文案对应）
 
     const TAPE_TOTAL_CLICKS       = TASK_TOTAL_CLICKS;
 
     let isDistorted       = false;
     let breakdownStarted  = false;
     let taskCompleted     = false;
+    
 
     const facts = [
-  { clicksPos: 1550,   text: 'At shift end the platform logged throughput metrics — but many workers found their individual pay adjusted downward.' },
-  { clicksPos: 1600,   text: 'Investigations and court filings exposed systemic issues: withheld pay, sudden layoffs, and broken promises.' },
-  { clicksPos: 1650,  text: 'Some workers have filed lawsuits or complaints about unfair dismissal, unpaid wages, and traumatic workloads.' },
-  { clicksPos:1700,  text: 'Low pay yet heavy exposure to graphic content led many to suffer severe emotional and psychological distress.' },
-  { clicksPos:1750,  text: 'Moderators say speed was the priority — fast judgments with little context for what they were reviewing.' },
-  { clicksPos: 1800,  text: 'Despite claims of “automation,” major platforms still rely on third-party contractors and human moderators.' },
-  { clicksPos: 1850,  text: 'Hundreds or thousands of items — text, images, video — had to be reviewed every shift under tight time pressure.' },
-  { clicksPos: 1900, text: 'Shifts ran day and night, rotating across time zones — many moderators worked long, irregular hours.' },
-  { clicksPos: 1950, text: 'If your mouse stopped — even for a bathroom break — the clock kept running; idle time could trigger deductions.' },
-  { clicksPos: 2000, text: 'Some content-moderators in Kenya reported sifting through hundreds of violent or graphic posts each day for <$2/hr.' },
-  { clicksPos: 2050, text: 'Even brief pauses were treated as “idle time” — some had pay docked for a few seconds’ inactivity.' },
+  { clicksPos: 1770,   text: 'At shift end the platform logged throughput metrics — but many workers found their individual pay adjusted downward.' },
+  { clicksPos: 1800,   text: 'Investigations and court filings exposed systemic issues: withheld pay, sudden layoffs, and broken promises.' },
+  { clicksPos: 1830,  text: 'Some workers have filed lawsuits or complaints about unfair dismissal, unpaid wages, and traumatic workloads.' },
+  { clicksPos:1860,  text: 'Low pay yet heavy exposure to graphic content led many to suffer severe emotional and psychological distress.' },
+  { clicksPos:1890,  text: 'Moderators say speed was the priority — fast judgments with little context for what they were reviewing.' },
+  { clicksPos: 1920,  text: 'Despite claims of “automation,” major platforms still rely on third-party contractors and human moderators.' },
+  { clicksPos: 1950,  text: 'Hundreds or thousands of items — text, images, video — had to be reviewed every shift under tight time pressure.' },
+  { clicksPos: 1980, text: 'Shifts ran day and night, rotating across time zones — many moderators worked long, irregular hours.' },
+  { clicksPos: 2010, text: 'If your mouse stopped — even for a bathroom break — the clock kept running; idle time could trigger deductions.' },
+  { clicksPos: 2040, text: 'Some content-moderators in Kenya reported sifting through hundreds of violent or graphic posts each day for <$2/hr.' },
+  { clicksPos: 2070, text: 'Even brief pauses were treated as “idle time” — some had pay docked for a few seconds’ inactivity.' },
   { clicksPos: 2100, text: 'Workers say they were pushed to click ~25 items per minute to meet platform quotas.' }
 ];
 
 
     function mmToPx(mm) { return mm * pxPerMm; }
+
+    //给 Items / Clicks 加千分位
+    function formatNumber(num) {
+        return num.toLocaleString('en-US');
+    }
 
     let tapeLengthPx = 0;
     let baseOffsetPx = 0;
@@ -724,8 +1155,8 @@
     const penaltyTemplate = document.getElementById('penaltyTemplate');
     const newsTemplate    = document.getElementById('newsTemplate');
 
-    const IDLE_THRESHOLD_MS = 15000;
-    const WARNING_MS        = 15000;
+    const IDLE_THRESHOLD_MS = 5000;
+    const WARNING_MS        = 5000;
 
     let lastActiveTime     = Date.now();
     let idleCountdownTimer = null;
@@ -733,7 +1164,37 @@
     let penaltyCount       = 0;
     let hasStarted         = false;
 
+    let totalIdleMs        = 0;    // 累积的发呆时间（毫秒）
+    let idleStartMs        = null; // 当前这一轮发呆开始的时间戳
+
     let newsOpened = 0;
+
+    // ---- Shift history（用 localStorage 保存每一班的票据）----
+    let shiftHistory = [];
+
+    try {
+    const saved = localStorage.getItem('gwShiftHistory');
+    if (saved) {
+        shiftHistory = JSON.parse(saved);
+    }
+    } catch (e) {
+    shiftHistory = [];
+    }
+
+    function saveReceiptToHistory(ticketText) {
+        const entry = {
+            ticket: ticketText,
+            time: new Date().toISOString(),
+        };
+        shiftHistory.push(entry);
+        try {
+            localStorage.setItem('gwShiftHistory', JSON.stringify(shiftHistory));
+        } catch (e) {
+            // 超出 localStorage 容量的话就算了，不影响运行
+        }
+    }
+
+
     const MAX_NEWS_WINDOWS = Infinity;
     let breakdownClicksSinceNews = 0;
     let breakdownClicksTotal = 0;
@@ -750,7 +1211,18 @@
       return `${pad2(seconds)}:${pad3(millis)}:${pad2(tick)}`;
     }
 
-    function fitIdleTimer() {
+    // 👇 新增：票据用的「HH:MM:SS」格式
+    function formatMsToHHMMSS(ms) {
+        const totalSec = Math.floor(ms / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+
+        const pad2 = n => n.toString().padStart(2, '0');
+        return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+        }
+    
+        function fitIdleTimer() {
       if (!idleOverlay.classList.contains('visible')) return;
       const box   = idleOverlay.getBoundingClientRect();
       const timer = idleCountdown;
@@ -770,6 +1242,7 @@
       if (idleOverlay.classList.contains('visible')) return;
 
       idleOverlay.classList.add('visible');
+      idleStartMs = Date.now();   //  开始记这一轮发呆
 
       let remainingMs = WARNING_MS;
       idleCountdown.textContent = formatMsToSSMMTT(remainingMs);
@@ -800,12 +1273,19 @@
     }
 
     function hideIdleOverlay() {
-      idleOverlay.classList.remove('visible');
-      if (idleCountdownTimer) {
-        clearInterval(idleCountdownTimer);
-        idleCountdownTimer = null;
-      }
+    // 先把本轮 idle 加进 totalIdleMs
+        if (idleStartMs !== null) {
+            totalIdleMs += Date.now() - idleStartMs;
+            idleStartMs = null;
+        }
+
+        idleOverlay.classList.remove('visible');
+        if (idleCountdownTimer) {
+            clearInterval(idleCountdownTimer);
+            idleCountdownTimer = null;
+        }
     }
+
 
     function makeDraggable(winEl) {
       const handle = winEl.querySelector('.penalty-header') || winEl;
@@ -842,62 +1322,65 @@
       handle.addEventListener('mousedown', onMouseDown);
     }
 
-    function createPenaltyWindow() {
-      penaltyCount++;
+ function createPenaltyWindow() {
+  penaltyCount++;
 
-      const clone = penaltyTemplate.cloneNode(true);
-      clone.id = '';
-      clone.classList.remove('penalty-template');
-      clone.style.display = 'flex';
-      clone.style.position = 'fixed';
-      clone.style.zIndex = 2000 + penaltyCount;
+  const clone = penaltyTemplate.cloneNode(true);
+  clone.id = '';
+  clone.classList.remove('penalty-template');
+  clone.style.display = 'flex';
+  clone.style.position = 'fixed';
+  //clone.style.width = '320px'; // 固定一个大致宽度，高度让内容自己撑
 
-      const rect  = mainWindow.getBoundingClientRect();
-      const bodyW = window.innerWidth;
-      const bodyH = window.innerHeight;
+  const titleEl = clone.querySelector('.penalty-title');
+  if (titleEl) {
+    titleEl.textContent = `pay notice · #${penaltyCount}`;
+  }
 
-      const penaltyWidth  = rect.width * 0.5;
-      const penaltyHeight = rect.height * 0.4;
+  const okBtn = clone.querySelector('.penalty-ok');
+  if (okBtn) {
+    okBtn.addEventListener('click', () => {
+      clone.classList.add('penalty-archived');
+    });
+  }
 
-      clone.style.width  = `${penaltyWidth}px`;
-      clone.style.height = `${penaltyHeight}px`;
+  document.body.appendChild(clone);
+  makeDraggable(clone);
 
-      const titleEl = clone.querySelector('.penalty-title');
-      if (titleEl) {
-        titleEl.textContent = `pay notice · #${penaltyCount}`;
-      }
+  // 👉 先加到 DOM，再按自身尺寸算位置，跟主窗口无关
+  requestAnimationFrame(() => {
+    const bodyW = window.innerWidth;
+    const bodyH = window.innerHeight;
+    const rect  = clone.getBoundingClientRect();
 
-      const overlap = 5 + Math.random() * 12;
-      const side = Math.random() < 0.5 ? 'left' : 'right';
+    const penaltyWidth  = rect.width;
+    const penaltyHeight = rect.height;
 
-      let top;
-      let left;
+    const overlap = 5 + Math.random() * 12;
+    const side = Math.random() < 0.5 ? 'left' : 'right';
 
-      const maxTopRange = Math.max(0, rect.height - penaltyHeight - 60);
-      top = rect.top + 20 + Math.random() * maxTopRange;
-      top = Math.max(20, Math.min(bodyH - penaltyHeight - 20, top));
+    const mainRect = mainWindow.getBoundingClientRect();
 
-      if (side === 'right') {
-        left = rect.right - overlap;
-      } else {
-        left = rect.left - penaltyWidth + overlap;
-      }
+    let top;
+    let left;
 
-      left = Math.max(10, Math.min(bodyW - penaltyWidth - 10, left));
+    const maxTopRange = Math.max(0, mainRect.height - penaltyHeight - 60);
+    top = mainRect.top + 20 + Math.random() * maxTopRange;
+    top = Math.max(20, Math.min(bodyH - penaltyHeight - 20, top));
 
-      clone.style.top  = `${top}px`;
-      clone.style.left = `${left}px`;
-
-      const okBtn = clone.querySelector('.penalty-ok');
-      if (okBtn) {
-        okBtn.addEventListener('click', () => {
-          clone.classList.add('penalty-archived');
-        });
-      }
-
-      document.body.appendChild(clone);
-      makeDraggable(clone);
+    if (side === 'right') {
+      left = mainRect.right - overlap;
+    } else {
+      left = mainRect.left - penaltyWidth + overlap;
     }
+
+    left = Math.max(10, Math.min(bodyW - penaltyWidth - 10, left));
+
+    clone.style.top  = `${top}px`;
+    clone.style.left = `${left}px`;
+  });
+}
+
 
     const newsItems = [
       { image: './DS3image/news1.jpg', url: 'https://www.washingtonpost.com/world/2023/08/28/scale-ai-remotasks-philippines-artificial-intelligence/' },
@@ -952,24 +1435,45 @@
         }
       }
 
-      document.body.appendChild(clone);
+    document.body.appendChild(clone);
 
-      requestAnimationFrame(() => {
-        const rect = clone.getBoundingClientRect();
+    requestAnimationFrame(() => {
         const bodyW = window.innerWidth;
         const bodyH = window.innerHeight;
 
-        const maxLeft = Math.max(10, bodyW - rect.width - 10);
-        const maxTop  = Math.max(10, bodyH - rect.height - 10);
+        // 先随便丢一个大概位置
+        let rect = clone.getBoundingClientRect();
+        let maxLeft = Math.max(10, bodyW - rect.width - 10);
+        let maxTop  = Math.max(10, bodyH - rect.height - 10);
 
-        const left = 10 + Math.random() * (maxLeft - 10);
-        const top  = 10 + Math.random() * (maxTop - 10);
+        let left = 10 + Math.random() * (maxLeft - 10);
+        let top  = 10 + Math.random() * (maxTop - 10);
 
         clone.style.left = `${left}px`;
         clone.style.top  = `${top}px`;
-      });
 
-      makeDraggable(clone);
+    // 再检查一次：如果挡住了 Click 按钮，就往上挪
+    const btn = document.getElementById('clickButton');
+    if (btn) {
+        const btnRect = btn.getBoundingClientRect();
+        rect = clone.getBoundingClientRect();
+
+        const overlapsHoriz =
+        rect.left < btnRect.right && rect.right > btnRect.left;
+        const overlapsVert =
+        rect.top < btnRect.bottom && rect.bottom > btnRect.top;
+
+        if (overlapsHoriz && overlapsVert) {
+        // 把 news 窗口挪到按钮上方
+        let newTop = btnRect.top - rect.height - 8;
+        if (newTop < 10) newTop = 10;   // 不要跑出屏幕
+        clone.style.top = `${newTop}px`;
+        }
+      }
+    });
+
+    makeDraggable(clone);
+
     }
 
     function resetIdleTimer() {
@@ -1005,33 +1509,325 @@
       createNewsWindow();
     }
 
-    function showFinalReport() {
-      const finalOverlay = document.getElementById('finalOverlay');
-      const clicksSpan   = document.getElementById('finalClicks');
-      const mmSpan       = document.getElementById('finalMm');
-      const paySpan      = document.getElementById('finalPay');
-      const ratingSpan   = document.getElementById('finalRating');
-      const btn          = document.getElementById('clickButton');
+    function populateFinalTicket(rating) {
+        // 基于当前交互状态动态计算所有数字
+        const totalMm      = clickCount * mmPerClick;
+        const grossPay     = clickCount * PAY_PER_CLICK;          // 总产出
+        const deductions   = penaltyCount * DEDUCTION_PER_PENALTY; // 罚款总额
+        const netPay       = grossPay - deductions;               // 实际到手（可以为负）
+        const itemsReviewed = clickCount * 5; // 每次点击对应多少“项目”，你可以改成别的倍率
 
-      const totalMm = clickCount * mmPerClick;
-      const pay     = clickCount * PAY_PER_CLICK;
+        const idleTimeStr  = formatMsToHHMMSS(totalIdleMs);
+        const emotional    = 'HIGH';
+        const trauma       = '0.73';
 
-      if (clicksSpan) clicksSpan.textContent = clickCount;
-      if (mmSpan)     mmSpan.textContent     = totalMm.toFixed(1) + ' mm';
-      if (paySpan)    paySpan.textContent    = '$' + pay.toFixed(2);
+        const ticket = `
+   
+========================================
 
-      let rating = 'BELOW TARGET';
-      if (penaltyCount === 0) rating = 'EXCELLENT';
-      else if (penaltyCount <= 2) rating = 'SATISFACTORY';
+                RECEIVED   
 
-      if (ratingSpan) ratingSpan.textContent = rating;
-      if (finalOverlay) finalOverlay.style.display = 'flex';
+========================================
 
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Shift complete';
-      }
+Worker ID:          0429-7561-KN
+Session:            08:00–12:00
+
+----------------------------------------
+Items Reviewed:     ${formatNumber(itemsReviewed)}
+Clicks Logged:      ${formatNumber(clickCount)}
+Key Travel:         ${totalMm.toFixed(1)} mm
+Idle Time:          ${idleTimeStr}
+Deductions Applied: $${deductions.toFixed(2)}
+Emotional Exposure: ${emotional}
+Trauma Index:       ${trauma}
+Payment Issued:     $${netPay.toFixed(2)}
+----------------------------------------
+Status:             ${rating}
+----------------------------------------
+
+This receipt confirms the collection of 
+unseen human labor required by AI systems.
+Every click counts.
+
+========================================
+        `.trim();
+
+        // ❗这里不再直接写入 DOM，只返回文本，方便我们做“打字机”动画
+        return ticket;
     }
+
+        // 一行一行“打印”小票的动画 + 播放打印机音效 + 逐渐撑大窗口
+    function animateReceipt(ticketText) {
+      const pre         = document.getElementById('finalTicketText');
+      const finalWindow = document.querySelector('.final-window');
+      if (!pre || !finalWindow) return;
+
+      pre.textContent = '';
+
+      const lines      = ticketText.split('\n');
+      const baseHeight = 220;  // 初始窗口高度（要和 CSS 开头大致对应）
+      const perLine    = 8;    // 每多一行大概加多少 px，你可以之后微调
+
+      let i = 0;
+
+      // 开始播放打小票音效
+      if (receiptSound) {
+        receiptSound.currentTime = 0;
+        receiptSound.play().catch(() => {});
+      }
+
+      // 先设置一个起始高度
+      finalWindow.style.height = baseHeight + 'px';
+
+      function step() {
+        if (i >= lines.length) {
+          // 播到最后可以让声音再多响一会儿再停
+          if (receiptSound) {
+            setTimeout(() => {
+              try { receiptSound.pause(); } catch (e) {}
+            }, 200);
+          }
+          return;
+        }
+
+        // 追加一行文本
+        pre.textContent += (i > 0 ? '\n' : '') + lines[i];
+        i++;
+
+        // 逐渐增加窗口高度（加一个上限，别超出屏幕）
+        const targetHeight = Math.min(
+          baseHeight + perLine * i * 2,   // *2 让增长快一点，你可以改
+          window.innerHeight * 0.8
+        );
+        finalWindow.style.height = targetHeight + 'px';
+
+        // 控制打印节奏：数字越小越快，60–100ms 之间都可以
+        setTimeout(step, 70);
+      }
+
+      step();
+    }
+
+
+        function showFinalReport() {
+        const finalOverlay = document.getElementById('finalOverlay');
+        const clicksSpan   = document.getElementById('finalClicks');
+        const mmSpan       = document.getElementById('finalMm');
+        const paySpan      = document.getElementById('finalPay');
+        const ratingSpan   = document.getElementById('finalRating');
+        const btn          = document.getElementById('clickButton');
+        const titleEl      = document.getElementById('finalReceiptTitle');
+        const barcode      = document.querySelector('.final-ticket-barcode');
+
+        const totalMm  = clickCount * mmPerClick;
+        const grossPay = clickCount * PAY_PER_CLICK;
+
+        // 旧的小 summary（如果你有这些 span，就顺便更新）
+        if (clicksSpan) clicksSpan.textContent = clickCount;
+        if (mmSpan)     mmSpan.textContent     = totalMm.toFixed(1) + ' mm';
+        if (paySpan)    paySpan.textContent    = '$' + grossPay.toFixed(2);
+
+        // 状态根据 penalty 数量来定
+        let rating = 'BELOW TARGET';
+        if (penaltyCount === 0) rating = 'EXCELLENT';
+        else if (penaltyCount <= 2) rating = 'SATISFACTORY';
+
+        if (ratingSpan) ratingSpan.textContent = rating;
+
+        if (titleEl) {
+          titleEl.textContent = 'Receipt';
+        }
+        if (barcode) {
+          barcode.style.display = 'flex';
+        }
+
+        // 先生成完整票据文本（但不直接显示）
+        const ticketText = populateFinalTicket(rating);
+
+        // 保存这一班的票据到 history（给“View History”用）
+        saveReceiptToHistory(ticketText);
+
+        // 打开 overlay，再开始做“打印动画”
+        if (finalOverlay) finalOverlay.style.display = 'flex';
+
+        // 确保预设文本是空的，从空白开始打印
+        const ticketPre = document.getElementById('finalTicketText');
+        if (ticketPre) {
+          ticketPre.textContent = '';
+        }
+
+        // 开始行-by-行的打印 + 撑大窗口 + 播放小票音效
+        animateReceipt(ticketText);
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Shift complete';
+        }
+    }
+
+    
+function resetShift() {
+  // 逻辑状态
+  clickCount               = 0;
+  isDistorted              = false;
+  breakdownStarted         = false;
+  taskCompleted            = false;
+  penaltyCount             = 0;
+  totalIdleMs              = 0;
+  idleStartMs              = null;
+  newsOpened               = 0;
+  breakdownClicksSinceNews = 0;
+  breakdownClicksTotal     = 0;
+  hasStarted               = false;
+  lastActiveTime           = Date.now();
+
+  // 视觉状态：全局样式
+  document.body.classList.remove('distorted','distorted-full','breakdown', 'shift-started');
+
+  // ✅ 把所有已经生成的罚款窗 / 新闻窗删掉（保留模板）
+  document.querySelectorAll('.penalty-window').forEach(win => {
+    // 模板本身有 penalty-template / news-template，要保留
+    if (
+      win.classList.contains('penalty-template') ||
+      win.classList.contains('news-template')
+    ) {
+      return;
+    }
+    win.remove();
+  });
+
+  // ✅ 确保 idle 黑幕也关掉
+  hideIdleOverlay();
+
+  // 主窗口 UI 恢复
+  clickCountEl.textContent = '0';
+  if (heightMmEl) {
+    heightMmEl.textContent = '0.0 mm';
+  }
+
+  // 把纸带拉回起始位置
+  recalcBaseOffset();
+  paperStrip.style.transform = `translate(-50%, ${baseOffsetPx}px)`;
+
+  // 按钮恢复
+  const btn = document.getElementById('clickButton');
+  if (btn) {
+    btn.disabled   = true;                 // 再次需要打卡才能开始
+    btn.textContent = 'Click to add 0.1 mm';
+  }
+
+  // ✅ 重置打卡卡片：拉回机器上方 + 提高 z-index + 去掉之前的动画
+  if (punchCard) {
+    punchCard.style.zIndex    = '4';      // 比 machineFront(3) 高，这样点得到它
+    punchCard.style.animation = 'none';   // 清掉上次的 bounce 动画
+    punchCard.style.left      = '';       // 先清空，避免残留
+    punchCard.style.top       = '';
+    // 等浏览器 layout 一下再重新放置到机器上方
+    setTimeout(placeCardAboveMachine, 30);
+  }
+
+  // 重新出现打卡开场
+  if (startOverlay) {
+    startOverlay.classList.remove('is-hidden');
+  }
+}
+
+
+
+function renderHistory() {
+  const el = document.getElementById('finalTicketText');
+  const titleEl = document.getElementById('finalReceiptTitle');
+
+  if (titleEl) {
+    titleEl.textContent = 'Receipt History';
+  }
+  if (!el) return;
+
+  // 进入 History 视图时，把条码区域藏起来
+  const barcode = document.querySelector('.final-ticket-barcode');
+  if (barcode) {
+    barcode.style.display = 'none';
+  }
+
+
+  if (!shiftHistory.length) {
+    el.textContent = 'No previous shifts.\n\nComplete a shift to store its receipt.';
+    return;
+  }
+
+  // 转义 ticket 文本里的特殊字符，避免被当 HTML
+  const escape = (str) =>
+    String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  const parts = shiftHistory.map((entry, idx) => {
+    const t = new Date(entry.time);
+    const label = `#${idx + 1}  ${t.toLocaleString()}`; // 每一条的“次数+时间戳”
+    const safeTicket = escape(entry.ticket);
+
+    // ✅ 每一个 label 都居中加粗 + 两侧加横线
+    return (
+      `<span class="history-highlight">--------${escape(label)}--------</span>\n` +
+      safeTicket
+    );
+  });
+
+  const html = parts.join(
+    '\n\n----------------------------------------\n\n'
+  );
+
+  // 用 innerHTML，这样 span 的样式才会生效
+  el.innerHTML = html;
+}
+
+
+// ------ Final window: 菜单按钮 + 下拉逻辑 ------
+const finalOverlay      = document.getElementById('finalOverlay');
+const finalMenuButton   = document.getElementById('finalMenuButton');
+const finalMenuDropdown = document.getElementById('finalMenuDropdown');
+
+if (finalMenuButton && finalMenuDropdown) {
+  // 点击 ⋯ 切换下拉菜单
+  finalMenuButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = !finalMenuDropdown.classList.contains('is-open');
+    finalMenuDropdown.classList.toggle('is-open', willOpen);
+    finalMenuButton.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  });
+
+  // 点击菜单项
+  finalMenuDropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    // 关闭菜单
+    finalMenuDropdown.classList.remove('is-open');
+    finalMenuButton.setAttribute('aria-expanded', 'false');
+
+    if (action === 'newShift') {
+      // 关掉当前票据窗 + 开新一班
+      if (finalOverlay) finalOverlay.style.display = 'none';
+      resetShift();
+    } else if (action === 'history') {
+      // 切换到历史视图
+      renderHistory();
+    }
+  });
+
+  // 点击窗口其他地方时收起菜单
+  document.addEventListener('click', () => {
+    if (!finalMenuDropdown.classList.contains('is-open')) return;
+    finalMenuDropdown.classList.remove('is-open');
+    finalMenuButton.setAttribute('aria-expanded', 'false');
+  });
+}
+
+
+
 
     function addClick() {
       if (!hasStarted || taskCompleted) return;
@@ -1050,6 +1846,14 @@
         isDistorted = true;
         startDistortionEffects();
       }
+
+      if (
+        isDistorted &&
+        !document.body.classList.contains('distorted-full') &&
+        clickCount >= DISTORTION_CLICKS + 40   // 你可以根据感觉调整 40
+    ) {
+        document.body.classList.add('distorted-full');
+    }
 
       if (isDistorted &&
           !breakdownStarted &&
@@ -1077,6 +1881,16 @@
         }
       }
 
+      // 当 breakdown 点击累计到一定量后，进入更糊的“deep breakdown”
+      if (
+        breakdownStarted &&
+        breakdownClicksTotal > 22 &&                // 阈值可以自己调
+        !document.body.classList.contains('breakdown-deep')
+      ) {
+        document.body.classList.add('breakdown-deep');
+      }
+
+
       if (clickCount >= TASK_TOTAL_CLICKS && !taskCompleted) {
         taskCompleted = true;
         showFinalReport();
@@ -1091,11 +1905,15 @@
       addClick();
     });
 
+
     /* ---------- 打卡机拖拽逻辑 ---------- */
     const startOverlay = document.getElementById('startOverlay');
     const punchCard = document.getElementById('punchCard');
     const machineFront = document.getElementById('machineFront');
     const clickBtn = document.getElementById('clickButton');
+    const punchSound   = document.getElementById('punchSound');
+    const receiptSound = document.getElementById('receiptSound');
+
 
     function startShift() {
       if (hasStarted) return;
@@ -1139,6 +1957,8 @@
         const rect = punchCard.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
+        // 👉 开始拖拽时，让场景放大一点
+        document.body.classList.add('intro-zoom');
       });
 
       document.addEventListener('mousemove', (e) => {
@@ -1151,16 +1971,20 @@
         if (!dragging) return;
         dragging = false;
         checkDrop();
+        // 👉 松手后，如果还没真正打卡成功，可以把放大关掉
+        if (!hasStarted) {
+         document.body.classList.remove('intro-zoom');
+        }
       });
 
       function checkDrop() {
-        const cardRect = punchCard.getBoundingClientRect();
+        const cardRect    = punchCard.getBoundingClientRect();
         const machineRect = machineFront.getBoundingClientRect();
         const cardCenterX = cardRect.left + cardRect.width / 2;
-        const cardCenterY = cardRect.top + cardRect.height / 2;
+        const cardCenterY = cardRect.top  + cardRect.height / 2;
 
         const slotCenterX = machineRect.left + machineRect.width * 0.5;
-        const slotCenterY = machineRect.top + machineRect.height * 0.32;
+        const slotCenterY = machineRect.top  + machineRect.height * 0.32;
         const slotRadiusX = machineRect.width * 0.18;
         const slotRadiusY = machineRect.height * 0.12;
 
@@ -1175,14 +1999,23 @@
           punchCard.style.left = targetLeft + 'px';
           punchCard.style.top  = targetTop + 'px';
 
-          punchCard.style.zIndex = 2; // 在 front 下方（front 是 3）
+          punchCard.style.zIndex   = 2; // 在 front 下方（front 是 3）
           punchCard.style.animation = 'card-bounce-in 0.8s ease-out';
+
+          // 👇 打卡成功时播放音效
+          if (punchSound) {
+            punchSound.currentTime = 0;
+            punchSound.play().catch(() => {
+              // 某些浏览器可能静音失败，忽略错误即可
+            });
+          }
 
           setTimeout(() => {
             startShift();
           }, 260);
         }
       }
+
     }
 
     /* ------------------ 启动 ------------------ */
@@ -1205,5 +2038,23 @@
       placeCardAboveMachine();
     });
   </script>
+
+    <!-- SVG filter：让 strip 在深度 breakdown 时像在水/墨里被拖拽 -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <filter id="ink-distort">
+      <!-- 噪声场 -->
+      <feTurbulence type="fractalNoise"
+                    baseFrequency="0.01 0.08"
+                    numOctaves="2"
+                    seed="3"
+                    result="noise"/>
+      <!-- 把噪声转成位移 -->
+      <feDisplacementMap in="SourceGraphic"
+                         in2="noise"
+                         scale="3"
+                         xChannelSelector="R"
+                         yChannelSelector="G" />
+    </filter>
+  </svg>
 </body>
 </html>
